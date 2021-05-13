@@ -1,0 +1,285 @@
+#!/bin/bash
+
+##
+## <mark> Variables
+##
+TUNNEL_FOLDERS=/tmp/ssh-tunnels
+
+##
+## <mark> Print & State
+##
+FATAL=0
+die()
+{
+    echo "[fatal] $1"
+    FATAL=1
+}
+
+PRE_DIE=0
+pre_die() {
+    if [ "$PRE_DIE" -eq "0" ]
+    then
+        PRE_DIE=1
+        print_header && print_help && print_delimiter
+    fi
+}
+
+check_die() {
+    if [ ! "$FATAL" -eq 0 ]
+    then
+        exit 1
+    fi
+}
+
+print_header() {
+    echo "SSH Tunneling - @romualdr - 0.0.1"
+    print_delimiter
+    echo ""
+}
+
+print_delimiter() {
+    echo "-----------------------------------------"
+}
+
+print_help()
+{
+    echo "Usage:"
+    echo "  ssh-tunnel [action]"
+    echo ""
+    echo "actions:"
+    echo "  up -h <host> -p <port> -l <local> -n <name> -s <connection>             Create a tunnel. (local: optional - defaults to remote [port]) (socks: activate proxy on connection [connection])"
+    echo "  down -n <name> -p <port>                                                Remove a tunnel by name or port."
+    echo "  list                                                                    List all active tunnels."
+    echo "  kill-all                                                                Remove all tunnels."
+}
+
+##
+## <mark> File utils
+##
+TUNNEL_FILE=-
+read_tunnel_file() {
+    content=`cat $1`
+    set -f # avoid globbing (expansion of *).
+    TUNNEL_FILE=(${content//;-;/ })
+}
+
+write_tunnel_file() {
+    NAME=$1
+    PID=$2
+    SOCKS=$3
+    echo "$PID;-;$SOCKS" > $TUNNEL_FOLDERS/$NAME
+}
+
+##
+## <mark> Actions functions
+##
+action_up() {
+    mkdir -p $TUNNEL_FOLDERS
+    echo "[action:up] Creating $1:$2 tunnel (port: $3, name: $4)"
+    if [ ! "$5" == "" ];
+    then
+        ssh -N -f -D localhost:$3 $1 >/dev/null 2>&1
+        PID=`lsof -t -i :$3 -s TCP:LISTEN`
+        write_tunnel_file $4 $PID
+
+        echo "[action:up] Proxyfing connection $5 through tunnel"
+        networksetup -setsocksfirewallproxy "$5" localhost $3
+        networksetup -setsocksfirewallproxystate "$5" on
+        write_tunnel_file $4 $PID $5
+    else
+        ssh -N -f -L $3:localhost:$2 $1
+        PID=`lsof -t -i :$3 -s TCP:LISTEN`
+        write_tunnel_file $4 $PID
+    fi
+
+    echo "[action:up] Connected"
+    exit 0
+}
+
+action_down() {
+    [ ! -f $TUNNEL_FOLDERS/$1 ] && die "[action:down] Unknown tunnel $1"
+    check_die
+
+    if [ -f $TUNNEL_FOLDERS/$1 ]
+    then
+        read_tunnel_file "$TUNNEL_FOLDERS/$1"
+        echo "[action:down] Closing tunnel $1 - PID: ${TUNNEL_FILE[0]} ..."
+
+        if [ ! "${TUNNEL_FILE[1]}" == "" ];
+        then
+            echo "[action:down] Removing proxy configuration for ${TUNNEL_FILE[1]}"
+            networksetup -setsocksfirewallproxystate "${TUNNEL_FILE[1]}" off
+        fi
+
+        kill -9 ${TUNNEL_FILE[0]} >/dev/null 2>&1
+        if [ "$?" == "1" ];
+        then
+            echo "[action:down] Tunnel was already closed"
+        fi
+        rm $TUNNEL_FOLDERS/$1
+        echo "[action:down] Tunnel closed"
+    fi
+}
+
+action_list() {
+    echo "List of active tunnels:"
+    for filepath in $TUNNEL_FOLDERS/*
+    do
+        if [ "$filepath" != "$TUNNEL_FOLDERS/*" ]; then
+            name=$(echo "$filepath" | sed "s/${TUNNEL_FOLDERS//\//\\/}\///")
+            read_tunnel_file $filepath
+            echo "  Name: $name [PID: ${TUNNEL_FILE[0]}] - [SOCKS: ${TUNNEL_FILE[1]}]"
+        fi
+    done
+
+}
+
+action_kill_all() {
+    echo "[action:kill-all] Killing all tunnels ..."
+    for filepath in $TUNNEL_FOLDERS/*
+    do
+        if [ "$filepath" != "$TUNNEL_FOLDERS/*" ]; then
+            name=$(echo "$filepath" | sed "s/${TUNNEL_FOLDERS//\//\\/}\///")
+            action_down $name
+        fi
+    done
+}
+
+##
+## <mark> Command handlers
+##
+command_down() {
+    POSITIONAL=()
+
+    while [[ $# -gt 0 ]]
+    do
+        if [[ "$key" == "$1" ]]
+        then
+            break
+        fi
+
+        key="$1"
+    
+        case $key in
+            -n|--name)
+                NAME="$2"
+                shift 2
+                ;;
+            -p|--port)
+                PORT="$2"
+                shift 2
+                ;;
+            --)
+                shift
+                break
+                ;;
+            *)    # unknown option
+                POSITIONAL+=("$1") # save it in an array for later
+                shift # past argument
+            ;;
+        esac
+    done
+    set -- "${POSITIONAL[@]}" # restore positional parameters
+
+    if [ ! "$PORT" == "" ]
+    then
+        echo $PORT | grep -E -q '^[0-9]+$'; [[ "$?" == "1" ]] && pre_die && die "[command:down] --port should be numerical";
+    fi
+
+    NAME="${NAME:-$PORT}"
+    [[ "$NAME" == "" ]] && pre_die && die "[command:down] --name or --port is mandatory";
+    check_die
+
+    action_down $NAME
+}
+
+command_up()
+{
+    POSITIONAL=()
+
+    while [[ $# -gt 0 ]]
+    do
+        if [[ "$key" == "$1" ]]
+        then
+            break
+        fi
+
+        key="$1"
+    
+        case $key in
+            -h|--host)
+                HOST="$2"
+                shift 2
+                ;;
+            -p|--port)
+                PORT="$2"
+                shift 2
+                ;;
+            -l|--local)
+                LOCAL="$2"
+                shift 2
+                ;;
+            -n|--name)
+                NAME="$2"
+                shift 2
+                ;;
+            -s|--socks)
+                SOCKS_CON_NAME="$2"
+                shift 2
+                ;;
+            --)
+                shift
+                break
+                ;;
+            *)    # unknown option
+                POSITIONAL+=("$1") # save it in an array for later
+                shift # past argument
+            ;;
+        esac
+    done
+    set -- "${POSITIONAL[@]}" # restore positional parameters
+
+    [[ "$HOST" == "" ]] && pre_die && die "[command:up] --host is mandatory";
+    echo $PORT | grep -E -q '^[0-9]+$'; [[ "$?" == "1" ]] && pre_die && die "[command:up] --port is mandatory and should be numerical";
+    check_die
+
+    LOCAL="${LOCAL:-$PORT}"
+    echo $LOCAL | grep -E -q '^[0-9]+$'; [[ "$?" == "1" ]] && pre_die && die "[command:up] --local should be numerical";
+    check_die
+    NAME="${NAME:-$LOCAL}" 
+
+    action_up $HOST $PORT $LOCAL $NAME $SOCKS_CON_NAME
+}
+
+##
+## <mark> Run script
+##
+if [ ! -n "$1" ]
+then
+    print_header && print_help && exit 0
+fi
+
+case $1 in
+    help)
+        shift
+        print_help
+    ;;
+    up)
+        shift
+        command_up $@
+    ;;
+    down)
+        shift
+        command_down $@
+    ;;
+    list)
+        shift
+        action_list $@
+    ;;
+    kill-all)
+        shift
+        action_kill_all $@
+    ;;
+    *) pre_die && die "Unknown action $1"
+    ;;
+esac

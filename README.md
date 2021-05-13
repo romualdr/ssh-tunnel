@@ -18,13 +18,13 @@ List all active tunnels
 ```
 $> ssh-tunnel list
 List of active tunnels:
-  Name: vnc [PID: 5903]
+  Name: vnc [PID: 8233]
 ```
 
 Stop a tunnel
 ```
 $> ssh-tunnel down -n vnc
-[action:down] Closing tunnel vnc - PID: 5903 ...
+[action:down] Closing tunnel vnc - PID: 8233 ...
 [action:down] Tunnel closed
 ```
 

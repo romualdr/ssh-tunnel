@@ -1,6 +1,6 @@
 # 🚇 ssh-tunnel
 
-macOS + ssh port forwarding - dependencies + simple = ssh-tunnel ✨
+macOS + ssh port forwarding + easy - dependencies = ssh-tunnel ✨
 
 No more command hassles.
 Easily manage multiple SSH tunnels (standard or dynamic) from your MacOS CLI.
@@ -49,7 +49,25 @@ $> ssh-tunnel kill-all
 
 > **warning** - only tested on MacOS
 
+Download the executable and voila.
+```
+$> wget -q https://raw.githubusercontent.com/romualdr/ssh-tunnel/main/ssh-tunnel && \
+   ([[ ! "`sha1sum ssh-tunnel`" = "35d35b286571877edeb453c05e3257c8c08f3310  ssh-tunnel" ]] && rm ssh-tunnel) || chmod +x ssh-tunnel
+```
 
+You should have the executable file if checksum passed
+```
+$> ./ssh-tunnel help
+Usage:
+  ssh-tunnel [action]
+
+actions:
+  up -h <host> -p <port> (-l <local> -n <name> -s <connection>)           Create a tunnel. (local, name: defaults to remote [port]) (-s: activate socks proxy on <connection>)
+  down -n <name> -p <port>                                                Remove a tunnel by name or port.
+  list                                                                    List all active tunnels.
+  kill-all                                                                Remove all tunnels.
+$>
+```
 
 ## state
 

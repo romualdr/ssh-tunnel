@@ -49,10 +49,11 @@ $> ssh-tunnel kill-all
 
 > **warning** - only tested on MacOS
 
-Download the executable and voila.
+Run this command that download the executable and voila.
 ```
-$> wget -q https://raw.githubusercontent.com/romualdr/ssh-tunnel/main/ssh-tunnel && \
-   ([[ ! "`sha1sum ssh-tunnel`" = "35d35b286571877edeb453c05e3257c8c08f3310  ssh-tunnel" ]] && rm ssh-tunnel) || chmod +x ssh-tunnel
+wget -q https://raw.githubusercontent.com/romualdr/ssh-tunnel/main/ssh-tunnel && \
+  ([[ ! "`sha1sum ssh-tunnel`" = "35d35b286571877edeb453c05e3257c8c08f3310  ssh-tunnel" ]] && rm ssh-tunnel) \
+  || chmod +x ssh-tunnel
 ```
 
 You should have the executable file if checksum passed

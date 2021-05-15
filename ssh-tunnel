@@ -32,13 +32,13 @@ check_die() {
 }
 
 print_header() {
-    echo "SSH Tunneling - @romualdr - 0.0.1"
+    echo "🚇 ssh-tunnel - https://github.com/romualdr/ssh-tunnel - 0.0.1"
     print_delimiter
     echo ""
 }
 
 print_delimiter() {
-    echo "-----------------------------------------"
+    echo "--------------------------------------------------------------"
 }
 
 print_help()
@@ -54,7 +54,7 @@ print_help()
 }
 
 ##
-## <mark> File utils
+## <mark> Utils
 ##
 TUNNEL_FILE=-
 read_tunnel_file() {
@@ -70,6 +70,11 @@ write_tunnel_file() {
     echo "$PID;-;$SOCKS" > $TUNNEL_FOLDERS/$NAME
 }
 
+get_pid() {
+    command -v lsof &> /dev/null && { echo "`lsof -t -i :$1 -s TCP:LISTEN`"; return; }
+    command -v fuser &> /dev/null && { echo "`fuser $1/tcp 2>/dev/null`"; return; }
+}
+
 ##
 ## <mark> Actions functions
 ##
@@ -78,8 +83,9 @@ action_up() {
     echo "[action:up] Creating $1:$2 tunnel (port: $3, name: $4)"
     if [ ! "$5" == "" ];
     then
-        ssh -N -f -D localhost:$3 $1 >/dev/null 2>&1
-        PID=`lsof -t -i :$3 -s TCP:LISTEN`
+        ssh $6 -N -f -D localhost:$3 $1 >/dev/null 2>&1
+        [[ ! "$?" == "0" ]] && die "[command:up] Unable to connect to SSH." && check_die;
+        PID=$(get_pid $3)
         write_tunnel_file $4 $PID
 
         echo "[action:up] Proxyfing connection $5 through tunnel"
@@ -87,8 +93,9 @@ action_up() {
         networksetup -setsocksfirewallproxystate "$5" on
         write_tunnel_file $4 $PID $5
     else
-        ssh -N -f -L $3:localhost:$2 $1
-        PID=`lsof -t -i :$3 -s TCP:LISTEN`
+        ssh $6 -N -f -L $3:localhost:$2 $1
+        [[ ! "$?" == "0" ]] && die "[command:up] Unable to connect to SSH." && check_die;
+        PID=$(get_pid $3)
         write_tunnel_file $4 $PID
     fi
 
@@ -171,6 +178,7 @@ command_down() {
                 ;;
             --)
                 shift
+                POSITIONAL+=("$*") # save it in an array for later
                 break
                 ;;
             *)    # unknown option
@@ -205,7 +213,7 @@ command_up()
         fi
 
         key="$1"
-    
+
         case $key in
             -h|--host)
                 HOST="$2"
@@ -229,6 +237,7 @@ command_up()
                 ;;
             --)
                 shift
+                POSITIONAL+=("$*") # save it in an array for later
                 break
                 ;;
             *)    # unknown option
@@ -248,7 +257,7 @@ command_up()
     check_die
     NAME="${NAME:-$LOCAL}" 
 
-    action_up $HOST $PORT $LOCAL $NAME $SOCKS_CON_NAME
+    action_up $HOST $PORT $LOCAL $NAME "$SOCKS_CON_NAME" "$*"
 }
 
 ##

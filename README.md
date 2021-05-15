@@ -45,25 +45,42 @@ $> ssh-tunnel kill-all
 [action:down] Tunnel closed
 ```
 
+Connect to a SSH server with a specific user, key and SSH port
+```
+# Assuming your SSH is listening on port 23
+# everything after '--' will be passed as options to the ssh command
+$> ssh-tunnel up -h root@ns1.domain.com -p 32000 -- -p 23 -i id_rsa_mykey
+[action:up] Creating root@ns1.domain.com:32000 tunnel (port: 32000, name: 32000)
+[action:up] Connected
+```
+
+Works with interactive prompt as well (password, otp, ...)
+```
+$> ssh-tunnel up -h root@ns1.domain.com -p 32000
+[action:up] Creating root@ns1.domain.com:32000 tunnel (port: 32000, name: 32000)
+Password:
+[action:up] Connected
+```
+
 ## Install
 
-> **warning** - only tested on MacOS
+> **warning** - only tested on MacOS and Debian
 
 Run this command that download the executable and voila.
 ```
 wget -q https://raw.githubusercontent.com/romualdr/ssh-tunnel/main/ssh-tunnel && \
-  ([[ ! "`sha1sum ssh-tunnel`" = "35d35b286571877edeb453c05e3257c8c08f3310  ssh-tunnel" ]] && rm ssh-tunnel) \
+  ([[ ! "`sha1sum ssh-tunnel`" = "42c6b8338242f68f8537447794c379633c01e9c8  ssh-tunnel" ]] && rm ssh-tunnel) \
   || chmod +x ssh-tunnel
 ```
 
-You should have the executable file if checksum passed
+You then should have the executable file on your machine if checksum was correct. Test it:
 ```
 $> ./ssh-tunnel help
 Usage:
   ssh-tunnel [action]
 
 actions:
-  up -h <host> -p <port> (-l <local> -n <name> -s <connection>)           Create a tunnel. (local, name: defaults to remote [port]) (-s: activate socks proxy on <connection>)
+  up -h <host> -p <port> (-l <local> -n <name> -s <connection>)           Create a tunnel. (local and name defaults to remote [port]) (-s: activate socks proxy on <connection>)
   down -n <name> -p <port>                                                Remove a tunnel by name or port.
   list                                                                    List all active tunnels.
   kill-all                                                                Remove all tunnels.
@@ -72,8 +89,6 @@ $>
 
 ## state
 
-- works well with `.ssh/config` ssh configurations
-- i.e: untested with user+password credentials ssh (feel free to PR)
 - SOCK functionality uses MacOS tooling for now (feel free to PR)
-- multiplateform untested
+- multiplateform untested but should probably work - handles lsof or fuser.
 - basically fits my needs for now but open for improvements

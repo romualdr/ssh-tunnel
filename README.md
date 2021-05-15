@@ -1,9 +1,11 @@
 # 🚇 ssh-tunnel
 
-macOS + ssh port forwarding + easy - dependencies = ssh-tunnel ✨
+ssh port forwarding + easy - dependencies = ssh-tunnel ✨
 
 No more command hassles.
-Easily manage multiple SSH tunnels (standard or dynamic) from your MacOS CLI.
+Easily manage multiple SSH tunnels (standard or dynamic) from your CLI.
+
+> Tested on Debian & macOS. SOCKS support only on macOS
 
 ## TL;DR - [Install](#install)
 
